@@ -1,21 +1,23 @@
 # 心エコー画像の品質評価モデル（Phase1）と埋め込み評価（Phase2）
 
-## このリポが提供するもの / 提供しないもの（最初にここだけ）
-**What this repo provides**
-- Input: 心エコー静止画像（ビュー: A4C / PL / PSAV / PSMV / SC）
-- Output: (Phase1) 品質スコア $\hat{q}$（概ね 0〜9） / (Phase2) embedding の検証指標（静的構造・方向安定性・改善可能性）
-- Use: データ選別（quality gate）・品質の定量化・将来の誘導研究の前段（※本リポ自体は誘導は扱いません）
+## まず最初に（このリポでできること / できないこと）
+このリポジトリは「心エコー画像の品質を数値化するモデル（Phase1）」と、「そのモデルの embedding がある程度まともかを検証する枠組み（Phase2）」をまとめたものです。
 
-**What this repo does NOT provide**
-- データセット本体（CACTUS 等）は **同梱しません**（規約に従い各自で取得してください）
-- Phase3/Phase4（プローブ誘導・シミュレーター等）は **含みません**
-- 臨床利用を目的とした保証・バリデーションは提供しません
+できること:
+- 入力: 心エコー静止画像（ビュー: A4C / PL / PSAV / PSMV / SC）
+- 出力: (Phase1) 品質スコア $\hat{q}$（概ね 0〜9） / (Phase2) embedding の検証指標（静的構造・方向安定性・改善可能性）
+- 用途: データ選別（品質ゲート）・品質の定量化・将来の誘導研究の前段の評価
 
-全体像（最小）:
+できないこと:
+- データセット本体（CACTUS 等）の同梱はしません（各データの規約に従って取得してください）
+- Phase3/Phase4（プローブ誘導・シミュレーター等）は含みません
+- 臨床利用を想定した保証やバリデーションは提供しません
+
+全体の流れ（最小）:
 ```
 CACTUS画像 + qualityラベル
-	└─(Phase1) 品質回帰モデル（multihead） → 品質スコア q̂
-			 └─(Phase2) embedding 抽出 → 構造/安定性/改善可能性を検証
+  └─ (Phase1) 品質回帰モデル（multihead） → 品質スコア q̂
+       └─ (Phase2) embedding 抽出 → 構造/安定性/改善可能性を検証
 ```
 
 ## 要旨（Abstract）
@@ -25,16 +27,16 @@ CACTUS画像 + qualityラベル
 
 本リポジトリには、推論・評価のための学習済み重み（checkpoint）を含みます（**Git LFS** 管理）。利用条件は [WEIGHTS_LICENSE.md](WEIGHTS_LICENSE.md) を参照してください（**非商用のみ**）。
 
-重要:
+注意:
 - モデル（重み）の利用可否・利用範囲は、元データセットの利用規約に強く依存します。
-- もし **元データの規約上「派生物（重み等）の再配布」が許容されない**場合、Weights は利用できません（必要に応じてローカルから削除し、再学習/再現手順のみを使用してください）。
+- もし **元データの規約上「派生物（重み等）の再配布」が許容されない**場合、ここに同梱している重みは利用できません（必要に応じてローカルから削除し、再学習/再現手順のみを使ってください）。
 
 ---
 
-## 0. Quickstart（コピペ最短）
+## 0. Quickstart（まず動かす）
 前提: **Python 3.10.x（例: 3.10.13）** / Git / Git LFS
 
-### 0.1 Clone（Weightsを含む）
+### 0.1 Clone（重みを含む）
 ```powershell
 git clone https://github.com/CryptorGit/echo-quality-model-eval.git
 cd echo-quality-model-eval
@@ -58,7 +60,7 @@ python -m pip install -U pip
 pip install -r requirements.txt
 ```
 
-### 0.3 Data placement（重要: このパス前提です）
+### 0.3 データ配置（このパス前提です）
 CACTUS を展開して、少なくとも次が存在するように配置してください:
 - `datasets/CACTUS/extracted/Cactus Dataset/Grades/`（`*_grades.csv` が入っている）
 - `datasets/CACTUS/extracted/Cactus Dataset/` 配下に画像ファイル（png/jpg 等）
@@ -66,23 +68,23 @@ CACTUS を展開して、少なくとも次が存在するように配置して�
 想定ディレクトリ例（最小）:
 ```
 echo-quality-model-eval/
-	datasets/
-		CACTUS/
-			extracted/
-				Cactus Dataset/
-					Grades/
-						A4C_grades.csv
-						PL_grades.csv
-						...
-					(images...)
-					(subfolders...)
+  datasets/
+    CACTUS/
+      extracted/
+        Cactus Dataset/
+          Grades/
+            A4C_grades.csv
+            PL_grades.csv
+            ...
+          (images...)
+          (subfolders...)
 ```
 
 補足:
 - `make_cactus_manifest.py` は `Grades/*_grades.csv` を読み、画像ファイルを探索して `datasets/CACTUS/manifests/*.csv` を生成します。
 - 画像パスの書き方がCSVと一致しない場合でも、basename（ファイル名）で探索して解決を試みます（ただし衝突が多い場合は解決に失敗します）。
 
-### 0.4 One-time preprocessing（manifest / split 生成）
+### 0.4 前処理（manifest / split 生成。初回のみ）
 ```powershell
 python phases/01_quality/scripts/make_cactus_manifest.py
 python phases/01_quality/scripts/make_cactus_groupsplit.py
@@ -91,7 +93,7 @@ python phases/01_quality/scripts/make_cactus_groupsplit_stratified.py --exclude_
 python phases/01_quality/scripts/make_phase1_kfold_v1.py --base_split_dir datasets/CACTUS/manifests_group_consensus_stratified --exclude_random
 ```
 
-### 0.5 Run Phase2 evaluation（採用モデル w14, fold0-4）
+### 0.5 Phase2 を回す（採用モデル w14, fold0-4）
 ```powershell
 python phases/02_embedding/scripts/run_phase2_pipeline.py --run_tag loss_reweight_view_band_w14 --folds 0,1,2,3,4
 ```
@@ -110,7 +112,7 @@ Quickstart が通らない場合は、まず `python phases/02_embedding/scripts
 
 ---
 
-## 3. リポジトリ構成（GitHub公開用に最小化）
+## 3. リポジトリ構成（公開用に最小限）
 - `phases/01_quality/scripts/`: Phase1（品質評価モデルの学習・評価・前処理）
 - `phases/02_embedding/scripts/`: Phase2（embedding 抽出と検証）
 - `shared/runs/phase1/`: 学習済み重み（`.pt`、Git LFS 管理）
@@ -129,7 +131,7 @@ Quickstart が通らない場合は、まず `python phases/02_embedding/scripts
 - `Random` は Phase1 では除外して運用
 - ラベル: `quality`（float、概ね 0〜9）
 
-重要:
+注意:
 - 本リポジトリは **データセット本体を同梱しません**。上記ページから取得してください。
 - **利用条件（研究用途可否、再配布可否、商用可否、派生物の公開可否）は配布元の規約が優先**です。
 
@@ -216,7 +218,7 @@ Python は **3.10.x** を推奨します。
 
 依存は [requirements.txt](requirements.txt) を参照してください（PyTorch は環境（CUDA/CPU）に合わせて導入してください）。
 
-Weights を含む clone には Git LFS が必要です:
+重みを含む clone には Git LFS が必要です:
 ```powershell
 git lfs install
 git lfs pull
@@ -251,16 +253,14 @@ python phases/02_embedding/scripts/run_phase2_pipeline.py --run_tag loss_reweigh
 また、原則として **本リポジトリに関する今後の更新は行いません**。
 ただし、(i) **オープンなプローブ位置（位置・姿勢）に対応づく心断面のデータセット**、または (ii) **心エコー画像を出力できるシミュレーター**を作成・取得できた場合に限り、追加の更新を行い、次段階の作業へ進める予定です。
 
----
-
-## 参考文献
-- He, K., Zhang, X., Ren, S., & Sun, J. (2016). Deep Residual Learning for Image Recognition (CVPR).
-
----
-
 ## 用語ミニ辞書（最小）
 - **QWK**: Quadratic Weighted Kappa。ラベルのズレを重く罰する一致度（大きいほど良い）。
 - **MAE / RMSE**: 回帰誤差指標（小さいほど良い）。
 - **pad2 / KeepRatioPad**: アスペクト比を維持し、letterbox で正方形入力へ整形する前処理。
 - **GroupSplit**: 近縁サンプル（同一患者/系列など）が train/test を跨がないように `group` 単位で分割。
 - **global_top20_cos**: 「高品質（上位20%）」方向の embedding の整列度合いを cosine で測る指標（大きいほど“方向が安定”）。
+
+---
+
+## 参考文献
+- He, K., Zhang, X., Ren, S., & Sun, J. (2016). Deep Residual Learning for Image Recognition (CVPR).
