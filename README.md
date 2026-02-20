@@ -63,6 +63,25 @@ CACTUS を展開して、少なくとも次が存在するように配置して�
 - `datasets/CACTUS/extracted/Cactus Dataset/Grades/`（`*_grades.csv` が入っている）
 - `datasets/CACTUS/extracted/Cactus Dataset/` 配下に画像ファイル（png/jpg 等）
 
+想定ディレクトリ例（最小）:
+```
+echo-quality-model-eval/
+	datasets/
+		CACTUS/
+			extracted/
+				Cactus Dataset/
+					Grades/
+						A4C_grades.csv
+						PL_grades.csv
+						...
+					(images...)
+					(subfolders...)
+```
+
+補足:
+- `make_cactus_manifest.py` は `Grades/*_grades.csv` を読み、画像ファイルを探索して `datasets/CACTUS/manifests/*.csv` を生成します。
+- 画像パスの書き方がCSVと一致しない場合でも、basename（ファイル名）で探索して解決を試みます（ただし衝突が多い場合は解決に失敗します）。
+
 ### 0.4 One-time preprocessing（manifest / split 生成）
 ```powershell
 python phases/01_quality/scripts/make_cactus_manifest.py
