@@ -1,0 +1,16 @@
+# Core
+numpy
+pandas
+tqdm
+Pillow
+
+# ML
+torch
+torchvision
+
+# Metrics / plots
+scikit-learn
+matplotlib
+
+# Preprocessing (Phase1 consensus scripts)
+opencv-python

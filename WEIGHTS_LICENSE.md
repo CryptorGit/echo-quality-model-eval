@@ -12,6 +12,8 @@ Use of the Weights and any results derived from them may be **restricted by the 
 
 If the dataset terms applicable to you do **not** allow such use, you must not use the Weights.
 
+If the underlying dataset terms do **not** allow redistribution of derivatives (including model weights), you must **delete the Weights** from your local copy and only use this repository as a code reference / for re-training under compliant terms.
+
 ## No Warranty
 The Weights are provided **as-is**, without warranties of any kind. You are responsible for validating performance and suitability for your use case.
 
@@ -20,3 +22,5 @@ The Weights are provided for research and evaluation. **Do not use** them for cl
 
 ## Redistribution
 If you redistribute the Weights, you must keep this file and the non-commercial restriction intact.
+
+You are responsible for ensuring redistribution is permitted by the underlying dataset terms.
